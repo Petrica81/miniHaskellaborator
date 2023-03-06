@@ -7,9 +7,13 @@ import Text.ParserCombinators.Parsec.Language
     ( haskellStyle, LanguageDef )
 import Text.ParserCombinators.Parsec.Token
 import Control.Applicative (some)
+import Control.Exception (bracket)
 
 miniHaskellDef :: LanguageDef st
-miniHaskellDef = undefined
+miniHaskellDef = haskellStyle{
+    reservedNames = ["let","letrec","in"],
+    reservedOpNames = ["\\","->","="]
+}
 
 miniHs :: TokenParser st
 miniHs = makeTokenParser miniHaskellDef
@@ -21,37 +25,59 @@ testParse p s
       Right a -> a
 
 var :: Parser Var
-var = undefined
+var = Var <$> (identifier miniHs <|> operator miniHs)
 -- >>> testParse var "b is a var"
 -- Var {getVar = "b"}
 
 varExp :: Parser ComplexExp
-varExp = undefined
+varExp = CX <$> var
 -- >>> testParse varExp "b is a var"
 -- CX (Var {getVar = "b"})
 
 lambdaExp :: Parser ComplexExp
-lambdaExp = undefined
+lambdaExp = do
+    reservedOp miniHs "\\"
+    v <- var
+    reservedOp miniHs "->"
+    cex <- expr
+    return $ CLam v cex
 -- >>> testParse lambdaExp "\\x -> x"
 -- CLam (Var {getVar = "x"}) (CX (Var {getVar = "x"}))
 
 letExp :: Parser ComplexExp
-letExp = undefined
+letExp = do
+    reserved miniHs "let"
+    v <- var
+    reservedOp miniHs"="
+    c1 <- expr
+    reserved miniHs "in"
+    c2 <- expr
+    return $ Let v  c1 c2
+
 -- >>> testParse letExp "let x := y in z"
 -- Let (Var {getVar = "x"}) (CX (Var {getVar = "y"})) (CX (Var {getVar = "z"}))
 
 letrecExp :: Parser ComplexExp
-letrecExp = undefined
+letrecExp = do
+    reserved miniHs "letrec"
+    v <- var
+    reservedOp miniHs"="
+    c1 <- expr
+    reserved miniHs "in"
+    c2 <- expr
+    return $ Let v  c1 c2
 -- >>> testParse letrecExp "letrec x := y in z"
 -- LetRec (Var {getVar = "x"}) (CX (Var {getVar = "y"})) (CX (Var {getVar = "z"}))
 
 listExp :: Parser ComplexExp
-listExp = undefined
+listExp = List <$> brackets miniHs (commaSep miniHs expr)
+
 -- >>> ghci> testParse listExp "[a,b,c]"
 -- List [CX (Var {getVar = "a"}),CX (Var {getVar = "b"}),CX (Var {getVar = "c"})]
 
 natExp :: Parser ComplexExp
-natExp = undefined
+natExp = Nat <$> fromIntegral <$> (natural miniHs)
+
 -- >>> ghci> testParse natExp "223 a"
 -- Nat 223
 
@@ -61,7 +87,7 @@ parenExp = undefined
 -- CX (Var {getVar = "a"})
 
 basicExp :: Parser ComplexExp
-basicExp = undefined
+basicExp = letrecExp <|> letExp <|> lambdaExp <|> varExp <|> listExp <|> natExp
 -- >>> testParse basicExp "[a,b,c]"
 -- List [CX (Var {getVar = "a"}),CX (Var {getVar = "b"}),CX (Var {getVar = "c"})]
 
