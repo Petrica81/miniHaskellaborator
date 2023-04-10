@@ -30,6 +30,7 @@ library
       Parsing
       Printing
       REPLCommand
+      Sugar
   other-modules:
       Paths_miniHaskell
   hs-source-dirs:

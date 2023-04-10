@@ -1,25 +1,27 @@
-
 module Main where
 
 import System.IO
 import System.Console.Isocline
+import Text.ParserCombinators.Parsec(parse)
 
 import Exp
+import Eval
+import Sugar
 import Parsing
 import Printing
 import REPLCommand
-import Text.ParserCombinators.Parsec(parse)
 
 main :: IO ()
 main = do
-    setHistory "history.txt" 200
-    input <- readline "miniHaskell"
+    input <- readline "DumiScript"
     case parse replCommand "<input>" input of
+        
         Left err -> print err >> main
         Right cmd -> case cmd of
+            
             Quit -> return ()
-            Load s -> putStrLn "NotImplemented" >> main
-            Eval l -> case parse exprParser "<input>" l of
+            Load _ -> putStrLn("WIP") >> main
+            Eval s -> case parse exprParser "<input>" s of
                 Left err -> print err >> main
-                Right c -> putStrLn (showExp c) >> main
-
+                Right c -> (putStrLn . showExp . sugarExp . normalize . desugarExp $ c) >> main
+                --Right c -> (putStrLn . showExp $ c) >> main
